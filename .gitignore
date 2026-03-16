@@ -1,0 +1,9 @@
+# Ignorar la carpeta de datos por su gran tamaño
+datos/
+
+# También es recomendable ignorar los JSON individuales si son muy pesados
+*.json
+
+# Ignorar archivos temporales de Python y Jupyter
+__pycache__/
+.ipynb_checkpoints/
