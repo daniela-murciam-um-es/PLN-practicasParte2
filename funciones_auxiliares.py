@@ -34,7 +34,7 @@ def stream_zst_file(filepath):
 					continue
 
 
-def extract_submissions(filepath, subreddits_list, n_submissions=3, min_comments=250, salto=3):
+def extract_submissions(filepath, subreddits_list, n_submissions=3, min_comments=250):
 	"""
 	Extrae las primeras N submissions de un subreddit con al menos min_comments comentarios.
 	Captura TODOS los atributos del dump.
@@ -54,10 +54,6 @@ def extract_submissions(filepath, subreddits_list, n_submissions=3, min_comments
 		# Control de que se está ejecutando
 		if scanned % 100000 == 0:
 			print(f'⏳ Escaneadas {scanned:,} líneas... Estado actual: {subs_buscados}')
-
-		# Salto temporal
-		if scanned % salto != 0:
-			continue
 
 		sub_nombre = obj.get('subreddit', '').lower()
 
@@ -89,7 +85,7 @@ def extract_submissions(filepath, subreddits_list, n_submissions=3, min_comments
 	return submissions_recolectadas
 
 
-def extract_comments_for_submissions(filepath, submissions, num_comments=10, salto=3):
+def extract_comments_for_submissions(filepath, submissions, num_comments=10):
 	"""
 	Extrae los primeros N comentarios para cada submission.
 	Captura TODOS los atributos del dump.
@@ -117,10 +113,6 @@ def extract_comments_for_submissions(filepath, submissions, num_comments=10, sal
 		# Control de que se está ejecutando
 		if scanned % 100000 == 0:
 			print(f"⏳ Escaneadas {scanned:,} líneas... Comentarios recolectados: {total_comments}")
-
-		# Salto temporal
-		if scanned % salto != 0:
-			continue
 
 		link_id = obj.get('link_id')
 
