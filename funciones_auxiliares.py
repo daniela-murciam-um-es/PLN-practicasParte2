@@ -34,7 +34,7 @@ def stream_zst_file(filepath):
 					continue
 
 
-def extract_submissions(filepath, subreddits_list, n_submissions=3, min_comments=250):
+def extract_submissions(filepath, subreddits_list, n_submissions=3, min_comments=250, salto=3):
 	"""
 	Extrae las primeras N submissions de un subreddit con al menos min_comments comentarios.
 	Captura TODOS los atributos del dump.
@@ -44,10 +44,21 @@ def extract_submissions(filepath, subreddits_list, n_submissions=3, min_comments
 	"""
 	subs_buscados = {sub.lower(): 0 for sub in subreddits_list}
 	submissions_recolectadas = []
+	scanned = 0
 
 	print(f"🔍 Buscando {n_submissions} submissions para {len(subreddits_list)} subreddits en una pasada...")	
 
 	for obj in stream_zst_file(filepath):
+		scanned +=1
+
+		# Control de que se está ejecutando
+		if scanned % 100000 == 0:
+			print(f'⏳ Escaneadas {scanned:,} líneas... Estado actual: {subs_buscados}')
+
+		# Salto temporal
+		if scanned % salto != 0:
+			continue
+
 		sub_nombre = obj.get('subreddit', '').lower()
 
 		if sub_nombre in subs_buscados and subs_buscados[sub_nombre] < n_submissions:
@@ -78,7 +89,7 @@ def extract_submissions(filepath, subreddits_list, n_submissions=3, min_comments
 	return submissions_recolectadas
 
 
-def extract_comments_for_submissions(filepath, submissions, num_comments=10):
+def extract_comments_for_submissions(filepath, submissions, num_comments=10, salto=3):
 	"""
 	Extrae los primeros N comentarios para cada submission.
 	Captura TODOS los atributos del dump.
@@ -94,12 +105,23 @@ def extract_comments_for_submissions(filepath, submissions, num_comments=10):
 	submission_map = {s['name']: s for s in submissions}
 	comment_count = {s['name']: 0 for s in submissions}
 	pending = set(submission_map.keys())
+	scanned = 0
 
 	print(f"🔍 Buscando hasta {num_comments} comentarios por submission...")
 
 	total_comments = 0
 
 	for obj in stream_zst_file(filepath):
+		scanned += 1
+
+		# Control de que se está ejecutando
+		if scanned % 100000 == 0:
+			print(f"⏳ Escaneadas {scanned:,} líneas... Comentarios recolectados: {total_comments}")
+
+		# Salto temporal
+		if scanned % salto != 0:
+			continue
+
 		link_id = obj.get('link_id')
 
 		if link_id not in pending:

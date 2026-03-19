@@ -1,0 +1,23 @@
+Número total de palabras, palabras por frase, tópicos distintos, tokens, etc.
+
+Basar la búsqueda del corpus en Expresiones Regulares.
+
+Atributos clave Submissions:
+- id/name -> t3_
+- subreddit
+- title
+- selftext
+- autor
+- created_utc
+- num_comments
+- score
+
+Atributos clave Comments:
+- id/name -> t1_
+- subreddit
+- link_id
+- parent_id -> t3_/t1_ dependiendo de si responde al raíz o a otro comentario.
+- autor
+- body
+- created_utc
+- score
