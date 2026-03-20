@@ -13,11 +13,6 @@ import sys
 from pathlib import Path
 from datetime import datetime, timedelta, UTC
 
-import zstandard as zstd
-import json
-import io
-from datetime import datetime, timedelta, UTC
-
 # Atributos relevantes para el análisis de texto y relevancia social
 ATTRIBUTOS_SUB = ['id', 'title', 'selftext', 'score', 'num_comments', 'created_utc', 'subreddit', 'name']
 ATTRIBUTOS_COMM = ['id', 'body', 'score', 'parent_id', 'link_id', 'created_utc', 'controversiality', 'author']
@@ -47,7 +42,6 @@ def stream_zst_file(filepath):
 					yield json.loads(line)
 				except json.JSONDecodeError:
 					continue
-
 
 def extract_submissions(filepath, subreddits_list, n_submissions=40, min_comments=30):
     subs_buscados = {sub.lower(): [] for sub in subreddits_list}
@@ -98,6 +92,7 @@ def extract_comments_for_submissions(filepath, submissions, num_comments=35):
     submission_map = {s['name']: s for s in submissions}
     comment_count = {s['name']: 0 for s in submissions}
     pending = set(submission_map.keys())
+    hilos_pendientes = len(submissions)
     
     print(f"🔍 Buscando ~{num_comments} comentarios por hilo...")
 
@@ -112,8 +107,15 @@ def extract_comments_for_submissions(filepath, submissions, num_comments=35):
 
             if comment_count[link_id] >= num_comments:
                 pending.remove(link_id)
+                hilos_pendientes -= 1
+
+            # BREAK EN CASO DE HABER ENCONTRADO EL NUMERO DE COMMENTS NECESARIOS
+            if hilos_pendientes == 0:
+                print("✅ ¡Completado! No hace falta leer más el archivo.")
+                break
 
         if not pending:
             break
+
     print("✨ Extracción de comentarios finalizada.")
     
