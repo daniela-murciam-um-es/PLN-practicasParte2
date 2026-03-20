@@ -11,7 +11,22 @@ import argparse
 import io
 import sys
 from pathlib import Path
-from datetime import datetime, UTC
+from datetime import datetime, timedelta, UTC
+
+import zstandard as zstd
+import json
+import io
+from datetime import datetime, timedelta, UTC
+
+# Atributos relevantes para el análisis de texto y relevancia social
+ATTRIBUTOS_SUB = ['id', 'title', 'selftext', 'score', 'num_comments', 'created_utc', 'subreddit', 'name']
+ATTRIBUTOS_COMM = ['id', 'body', 'score', 'parent_id', 'link_id', 'created_utc', 'controversiality', 'author']
+
+def filter_submission(obj):
+    return {clave: valor for clave, valor in obj.items() if clave in ATTRIBUTOS_SUB}
+
+def filter_comment(obj):
+    return {clave: valor for clave, valor in obj.items() if clave in ATTRIBUTOS_COMM}
 
 
 def stream_zst_file(filepath):
@@ -34,110 +49,71 @@ def stream_zst_file(filepath):
 					continue
 
 
-def extract_submissions(filepath, subreddits_list, n_submissions=3, min_comments=250):
-	"""
-	Extrae las primeras N submissions de un subreddit con al menos min_comments comentarios.
-	Captura TODOS los atributos del dump.
-	¡OJO! Para la práctica 2 se deberá realizar un procesamiento de qué subreddits se pretenden seleccionar
-	teniendo en cuenta distintas características de los posts como la fecha, información sobre los sumbissions, etc.
-	Además, no se deberán almacenar todos los atributos, sino los más relevantes para los usuarios.
-	"""
-	subs_buscados = {sub.lower(): 0 for sub in subreddits_list}
-	submissions_recolectadas = []
-	scanned = 0
+def extract_submissions(filepath, subreddits_list, n_submissions=40, min_comments=30):
+    subs_buscados = {sub.lower(): [] for sub in subreddits_list}
+    # Guardamos el último 'created_utc' guardado para cada subreddit
+    last_time_saved = {sub.lower(): 0 for sub in subreddits_list}
+    
+    # HE CONFIGURADO UN SALTO ALEATORIO, EN ESTE CASO ES UN DIA, PARA QUE NO HAYA VARIOS DEL MISMO DIA
+    SALTO = 86400 
 
-	print(f"🔍 Buscando {n_submissions} submissions para {len(subreddits_list)} subreddits en una pasada...")	
+    for obj in stream_zst_file(filepath):
+        sub = obj.get('subreddit', '').lower()
+        
+        if sub in subs_buscados and len(subs_buscados[sub]) < n_submissions:
+            # Comprobamos si tiene comentarios suficientes
+            if obj.get('num_comments', 0) >= min_comments:
+                
+                # COMPROBACIÓN DE SALTO TEMPORAL
+                actual_time = obj.get('created_utc', 0)
+                if abs(actual_time - last_time_saved[sub]) > SALTO:
+                    
+                    # ATRIBUTOS FILTRADOS
+                    post_limpio = {
+                        'id': obj.get('id'),
+                        'name': obj.get('name'), # t3_... (necesario para link_id)
+                        'title': obj.get('title'),
+                        'selftext': obj.get('selftext'),
+                        'score': obj.get('score'),
+                        'created_utc': actual_time,
+                        'subreddit': sub,
+                        'comments': [] # Aquí meteremos los comentarios luego
+                    }
+                    
+                    subs_buscados[sub].append(post_limpio)
+                    last_time_saved[sub] = actual_time
+                    print(f"Post guardado en r/{sub} ({len(subs_buscados[sub])}/{n_submissions})")
 
-	for obj in stream_zst_file(filepath):
-		scanned +=1
+    # Convertimos el diccionario en una lista plana para devolverla
+    resultado = []
+    for lista in subs_buscados.values():
+        resultado.extend(lista)
+    return resultado
 
-		# Control de que se está ejecutando
-		if scanned % 100000 == 0:
-			print(f'⏳ Escaneadas {scanned:,} líneas... Estado actual: {subs_buscados}')
+def extract_comments_for_submissions(filepath, submissions, num_comments=35):
+    """
+    Busca comentarios para las submissions seleccionadas.
+    Pedimos 35 por hilo para tener margen de sobra si hay bots o spam.
+    """
+    submission_map = {s['name']: s for s in submissions}
+    comment_count = {s['name']: 0 for s in submissions}
+    pending = set(submission_map.keys())
+    
+    print(f"🔍 Buscando ~{num_comments} comentarios por hilo...")
 
-		sub_nombre = obj.get('subreddit', '').lower()
+    for obj in stream_zst_file(filepath):
+        link_id = obj.get('link_id')
 
-		if sub_nombre in subs_buscados and subs_buscados[sub_nombre] < n_submissions:
-			num_comments = obj.get('num_comments', 0) or 0
+        if link_id in pending:
+            # Filtrado de atributos
+            comment = filter_comment(obj)
+            submission_map[link_id]['comments'].append(comment)
+            comment_count[link_id] += 1
 
-			if num_comments >= min_comments:
-				# Copiar TODOS los atributos originales
-				submission = obj.copy()
+            if comment_count[link_id] >= num_comments:
+                pending.remove(link_id)
 
-				# Añadir campos calculados
-				submission['name'] = f"t3_{obj.get('id')}"
-				submission['created_datetime'] = datetime.fromtimestamp(
-					obj.get('created_utc', 0), UTC
-				).isoformat() if obj.get('created_utc') else None
-				submission['comments'] = []  # Se llenará después con los comentarios
-
-				submissions_recolectadas.append(submission)
-				subs_buscados[sub_nombre] += 1
-				
-				titulo_corto = submission.get('title', '')[:40].replace('\n', ' ')
-				print(f"  ✓ [r/{sub_nombre}] {subs_buscados[sub_nombre]}/{n_submissions} -> {titulo_corto}...")
-
-		if all(count >= n_submissions for count in subs_buscados.values()):
-			print("✅ ¡Todas las submissions encontradas!")
-			break
-
-	print(f"  Encontradas: {len(submissions_recolectadas)} con ≥{min_comments} comentarios\n")
-	return submissions_recolectadas
-
-
-def extract_comments_for_submissions(filepath, submissions, num_comments=10):
-	"""
-	Extrae los primeros N comentarios para cada submission.
-	Captura TODOS los atributos del dump.
-	"""
-	if num_comments <= 0:
-		print("⏭️  num_comments=0, saltando búsqueda de comentarios")
-		return
-
-	if not submissions:
-		print("⏭️  Sin submissions")
-		return
-
-	submission_map = {s['name']: s for s in submissions}
-	comment_count = {s['name']: 0 for s in submissions}
-	pending = set(submission_map.keys())
-	scanned = 0
-
-	print(f"🔍 Buscando hasta {num_comments} comentarios por submission...")
-
-	total_comments = 0
-
-	for obj in stream_zst_file(filepath):
-		scanned += 1
-
-		# Control de que se está ejecutando
-		if scanned % 100000 == 0:
-			print(f"⏳ Escaneadas {scanned:,} líneas... Comentarios recolectados: {total_comments}")
-
-		link_id = obj.get('link_id')
-
-		if link_id not in pending:
-			continue
-
-		# Copiar TODOS los atributos originales
-		comment = obj.copy()
-
-		# Añadir campos calculados
-		comment['name'] = f"t1_{obj.get('id')}"
-		comment['created_datetime'] = datetime.fromtimestamp(
-			obj.get('created_utc', 0), UTC
-		).isoformat() if obj.get('created_utc') else None
-
-		submission_map[link_id]['comments'].append(comment)
-		comment_count[link_id] += 1
-		total_comments += 1
-
-		if comment_count[link_id] >= num_comments:
-			pending.discard(link_id)
-			if not pending:
-				break
-
-	print(f"  Total: {total_comments} comentarios encontrados\n")
-	for s in submissions:
-		print(f"  📝 \"{s.get('title', '')[:50]}...\" → {len(s['comments'])} comentarios")
-		
+        if not pending:
+            break
+    print("✨ Extracción de comentarios finalizada.")
+    
