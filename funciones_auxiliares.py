@@ -11,37 +11,37 @@ import argparse
 import io
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timezone, UTC
 
 # Atributos relevantes para el análisis de texto y relevancia social
-ATTRIBUTOS_SUB = ['id', 'title', 'selftext', 'score', 'num_comments', 'created_utc', 'subreddit', 'name']
-ATTRIBUTOS_COMM = ['id', 'body', 'score', 'parent_id', 'link_id', 'created_utc', 'controversiality', 'author']
+ATRIBUTOS_SUB = ['created_utc', 'id','name', 'author', 'subreddit', 'title', 'selftext', 'score', 'num_comments']
+ATRIBUTOS_COMM = ['created_utc', 'id', 'author', 'subreddit', 'body', 'score', 'parent_id', 'link_id', 'controversiality']
 
 def filter_submission(obj):
-    return {clave: valor for clave, valor in obj.items() if clave in ATTRIBUTOS_SUB}
+    return {clave: valor for clave, valor in obj.items() if clave in ATRIBUTOS_SUB}
 
 def filter_comment(obj):
-    return {clave: valor for clave, valor in obj.items() if clave in ATTRIBUTOS_COMM}
+    return {clave: valor for clave, valor in obj.items() if clave in ATRIBUTOS_COMM}
 
 
 def stream_zst_file(filepath):
-	"""
-	Genera objetos JSON línea por línea desde un archivo .zst
-	"""
-	dctx = zstd.ZstdDecompressor(max_window_size=2**31)
+    """
+    Genera objetos JSON línea por línea desde un archivo .zst
+    """
+    dctx = zstd.ZstdDecompressor(max_window_size=2**31)
 
-	with open(filepath, 'rb') as fh:
-		with dctx.stream_reader(fh) as reader:
-			text_stream = io.TextIOWrapper(reader, encoding='utf-8', errors='ignore')
+    with open(filepath, 'rb') as fh:
+        with dctx.stream_reader(fh) as reader:
+            text_stream = io.TextIOWrapper(reader, encoding='utf-8', errors='ignore')
 
-			for line in text_stream:
-				line = line.strip()
-				if not line:
-					continue
-				try:
-					yield json.loads(line)
-				except json.JSONDecodeError:
-					continue
+            for line in text_stream:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError:
+                    continue
 
 def extract_submissions(filepath, subreddits_list, n_submissions=40, min_comments=30):
     subs_buscados = {sub.lower(): [] for sub in subreddits_list}
@@ -63,20 +63,21 @@ def extract_submissions(filepath, subreddits_list, n_submissions=40, min_comment
                 if abs(actual_time - last_time_saved[sub]) > SALTO:
                     
                     # ATRIBUTOS FILTRADOS
-                    post_limpio = {
-                        'id': obj.get('id'),
-                        'name': obj.get('name'), # t3_... (necesario para link_id)
-                        'title': obj.get('title'),
-                        'selftext': obj.get('selftext'),
-                        'score': obj.get('score'),
-                        'created_utc': actual_time,
-                        'subreddit': sub,
-                        'comments': [] # Aquí meteremos los comentarios luego
-                    }
+                    post_limpio = filter_submission(obj)
+
+                    # Inyectamos la lista vacía para que la siguiente función pueda meter los comentarios
+                    post_limpio['comments'] = []
+
+                    # Ponemos la fecha en modo estándar
+                    post_limpio['created_datetime'] = datetime.fromtimestamp(actual_time, tz=timezone.utc).isoformat()
                     
                     subs_buscados[sub].append(post_limpio)
                     last_time_saved[sub] = actual_time
                     print(f"Post guardado en r/{sub} ({len(subs_buscados[sub])}/{n_submissions})")
+                    
+            if all(len(lista) >= n_submissions for lista in subs_buscados.values()):
+                         print("✅ ¡Todas las submissions encontradas!")
+                         break 
 
     # Convertimos el diccionario en una lista plana para devolverla
     resultado = []
@@ -102,6 +103,8 @@ def extract_comments_for_submissions(filepath, submissions, num_comments=35):
         if link_id in pending:
             # Filtrado de atributos
             comment = filter_comment(obj)
+            actual_time = obj.get('created_utc', 0)
+            comment['created_datetime'] = datetime.fromtimestamp(actual_time, tz=timezone.utc).isoformat()
             submission_map[link_id]['comments'].append(comment)
             comment_count[link_id] += 1
 

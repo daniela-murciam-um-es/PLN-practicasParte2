@@ -1,5 +1,10 @@
 Número total de palabras, palabras por frase, tópicos distintos, tokens, etc.
 
+Type-Token Ratio (Riqueza Léxica) con un Boxplot
+Frecuencia de N-gramas (conjuntos de palabras) con barras horizontales
+WordClouds
+Relación longitud del texto-score con un scatterplot
+
 Basar la búsqueda del corpus en Expresiones Regulares.
 
 Atributos clave Submissions:
