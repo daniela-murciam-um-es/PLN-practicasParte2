@@ -226,7 +226,7 @@ def plot_wordclouds(lista_dfs: list[pd.DataFrame], columna_texto: str = 'body') 
             width=800, 
             height=400, 
             background_color="white",
-            colormap='vanimo_r',       
+            colormap='jet',       
             stopwords=stop_words,
             max_words=100,            # Limitamos a las 100 mejores para no hacer un borrón
             contour_width=3,
@@ -291,6 +291,34 @@ def plot_scatter_longitud_score(lista_dfs: list[pd.DataFrame], columna_longitud:
     # Le ponemos una cuadrícula suave para guiar el ojo
     fig.update_xaxes(type='log',showgrid=True, gridwidth=1, gridcolor='LightGray')
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+    
+    fig.show()
+
+def plot_pie(lista_dfs: list[pd.DataFrame],  titulo: str, columna: str = 'language') -> None:
+    """
+    Genera un gráfico de tarta (pie chart) para visualizar la distribución de una columna categórica.
+    """
+    if not lista_dfs:
+        print("⚠️ La lista de DataFrames está vacía.")
+        return
+
+    # Juntamos todos los DataFrames filtrados en uno solo
+    df_combinado = pd.concat(lista_dfs, ignore_index=True)
+
+    # Comprobaciones de seguridad
+    if columna not in df_combinado.columns:
+        print(f"⚠️ Error: La columna '{columna}' no existe en el DataFrame.")
+        return
+
+    # Contamos las ocurrencias de cada categoría
+    conteo = df_combinado[columna].value_counts()
+
+    # Dibujamos el gráfico de tarta
+    plt.figure(figsize=(8, 8))
+    fig = px.pie(
+        names=conteo.index, 
+        values=conteo.values,
+        title=titulo)
     
     fig.show()
 
