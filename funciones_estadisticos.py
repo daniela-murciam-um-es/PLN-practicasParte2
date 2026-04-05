@@ -2,6 +2,7 @@ import pandas as pd
 import json
 from datetime import datetime
 import plotly.express as px
+from plotly.subplots import make_subplots
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 from collections import Counter
@@ -47,33 +48,51 @@ def separar_dataframes(archivo: str) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 ## -- GRÁFICAS --
 
-def histograma(datos: list[pd.DataFrame], atributo: str = 'created_datetime', ) -> None:
+def histograma(datos: list[pd.DataFrame], columna: str = 'created_datetime', titulo: str = 'Distribución temporal de', labels: dict = {'created_datetime': 'Fecha y Hora' } ) -> None:
     '''
     Genera histogramas de los dataframes pasados en una lista, sobre el atributo (columna del dataframe) 
     especificado. Distingue si es submission o comment para que quede más claro y se diferencie mejor.
     '''
-    for dataframe in datos:
-        if 'title' in dataframe: # Es submission
-            tipo_dato = 'Submissions (Hilos)'
-            y_label = 'Número de Hilos'
-            sub = dataframe['subreddit'].iloc[0]
-            color = '#FF5700'
-        else:
-            tipo_dato = 'Comentarios'
-            y_label = 'Número de Comentarios'
-            sub = dataframe['subreddit'].iloc[0]
-            color = '#336699'
+    subs_dict = {}
+    for df in datos:
+        sub_name = df['subreddit'].iloc[0]
+        if sub_name not in subs_dict:
+            subs_dict[sub_name] = {}
+        
+        # Clasificamos si es submission o comment
+        tipo = 'subs' if 'title' in df else 'comms'
+        subs_dict[sub_name][tipo] = df
+
+    # Iteramos sobre cada subreddit y creamos su figura de 1x2
+    for sub, dfs in subs_dict.items():
+        fig = make_subplots(
+            rows=1, cols=2, 
+            subplot_titles=(f'Submissions (Hilos)', f'Comentarios'),
+            horizontal_spacing=0.1
+        )
+
+        # Configuración para cada lado
+        config = [
+            ('subs', 1, '#FF5700', 'Hilos'),
+            ('comms', 2, '#336699', 'Comentarios')
+        ]
 
         # Crea el histograma del tipo que sea en ese momento 
-        fig = px.histogram(dataframe,
-               x=atributo,
-               title=f'Distribucion temporal de {tipo_dato} en el subreddit: {sub}',
-               labels={'created_datetime': 'Fecha y Hora de publicación'},
-               color_discrete_sequence=[color])
+        for tipo, col_idx, color, y_label in config:
+            if tipo in dfs:
+                # Usamos px.histogram para aprovechar su lógica de bins automáticos
+                temp_fig = px.histogram(dfs[tipo], x=columna, color_discrete_sequence=[color])
+                
+                # Extraemos los trazos y los pasamos al subplot
+                for trace in temp_fig.data:
+                    fig.add_trace(trace, row=1, col=col_idx)
+                
+                fig.update_yaxes(title_text=f"Número de {y_label}", row=1, col=col_idx)
         
         fig.update_layout(
-            yaxis_title=y_label,
+            title_text=f"{titulo} en r/{sub}",
             bargap=0.05,
+            showlegend=False,
             hovermode="x unified"
         )
         fig.show()
@@ -145,7 +164,6 @@ def plot_top_ngramas(lista_dfs: list[pd.DataFrame], n: int = 2, top_k: int = 15,
             continue
             
         sub_nombre = df.get('subreddit', pd.Series(['Desconocido'])).iloc[0]
-        print(f"Generando gráfico para r/{sub_nombre}...")
         
         todas_palabras = []
         
@@ -187,7 +205,6 @@ def plot_top_ngramas(lista_dfs: list[pd.DataFrame], n: int = 2, top_k: int = 15,
             color_continuous_scale='sunsetdark'
         )
         
-        fig.update_layout(coloraxis_showscale=False)
         fig.show()
         
 def plot_wordclouds(lista_dfs: list[pd.DataFrame], columna_texto: str = 'body') -> None:
@@ -199,7 +216,7 @@ def plot_wordclouds(lista_dfs: list[pd.DataFrame], columna_texto: str = 'body') 
         print("⚠️ La lista de DataFrames está vacía.")
         return
 
-	# Limpiamos de stopwords
+    # Limpiamos de stopwords
     stop_words = set(stopwords.words('english'))
     stop_words.update([
         'like', 'would', 'could', 'get', 'one', 'people', 'think', 'know', 'really', 'even', 'much',
@@ -212,7 +229,6 @@ def plot_wordclouds(lista_dfs: list[pd.DataFrame], columna_texto: str = 'body') 
             continue
             
         sub_nombre = df.get('subreddit', pd.Series(['Desconocido'])).iloc[0]
-        print(f"Generando Nube de Palabras para r/{sub_nombre}...")
         
         # Juntamos TODOS los comentarios de este subreddit en un solo bloque de texto gigante
         texto_completo = " ".join(df[columna_texto].dropna().astype(str).str.lower())
@@ -321,6 +337,57 @@ def plot_pie(lista_dfs: list[pd.DataFrame],  titulo: str, columna: str = 'langua
         title=titulo)
     
     fig.show()
+
+def barplot(lista_dfs: list[pd.DataFrame], columna: str='author', titulo: str='Top Autores en', top_k: int=15, labels: dict={'x': 'Total', 'y': 'Author'}) -> None:
+    
+    subs_dict = {}
+    for df in lista_dfs:
+        sub_name = df['subreddit'].iloc[0]
+        if sub_name not in subs_dict:
+            subs_dict[sub_name] = {}
+        
+        tipo = 'subs' if 'title' in df.columns else 'comms'
+        subs_dict[sub_name][tipo] = df
+
+    # Creamos la figura doble por cada subreddit
+    for sub, dfs in subs_dict.items():
+        fig = make_subplots(
+            rows=1, cols=2, 
+            subplot_titles=(f'Submissions (Hilos)', f'Comentarios'),
+            horizontal_spacing=0.15 # Un poco más de espacio para los nombres de usuario
+        )
+
+        # Configuración para cada lado (Tipo, Columna, Escala de color)
+        config = [
+            ('subs', 1, 'Oranges'),
+            ('comms', 2, 'Blues')
+        ]
+
+        for tipo, col_idx, color_scale in config:
+            if tipo in dfs:
+                df_actual = dfs[tipo]
+                # Calculamos el conteo y ordenamos para que el mayor quede arriba en el gráfico horizontal
+                conteo = df_actual[columna].value_counts().head(top_k).sort_values(ascending=True)
+
+                # Creamos el barplot temporal con Plotly Express
+                temp_fig = px.bar(
+                    conteo,
+                    x=conteo.values,
+                    y=conteo.index,
+                    orientation='h',
+                )
+                
+                # Trasplantamos los trazos
+                for trace in temp_fig.data:
+                    trace.marker.color = conteo.values
+                    trace.marker.colorscale = color_scale
+                    trace.marker.showscale = False 
+                    fig.add_trace(trace, row=1, col=col_idx)
+                
+                fig.update_xaxes(title_text="Total publicaciones", row=1, col=col_idx)
+                fig.update_layout(title_text=f"{titulo} en r/{sub} (Top {top_k})", showlegend=False)
+        
+        fig.show()
 
 ## -- MÉTRICAS --
 
