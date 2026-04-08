@@ -485,6 +485,7 @@ def calcular_estadisticos_corpus(lista_dfs: list[pd.DataFrame]) -> pd.DataFrame:
         media_palabras = round(df['palabras'].mean(), 2)
         media_frases = round(df['frases'].mean(), 2)
         media_ttr = round(df['ttr'].mean(), 2) # TTR medio por comentario
+        meida_palabras_por_frase = round(df['palabras_por_frase'].mean(),2)
         
         # Guardamos la fila de este subreddit
         estadisticos.append({
@@ -492,8 +493,10 @@ def calcular_estadisticos_corpus(lista_dfs: list[pd.DataFrame]) -> pd.DataFrame:
             'Comentarios': total_comentarios,
             'Total Palabras': total_palabras,
             'Total Tokens': total_tokens,
+            'Total Frases': total_frases,
             'Media Palabras/Coment.': media_palabras,
             'Media Frases/Coment.': media_frases,
+            'Media Palabras/Frase': meida_palabras_por_frase,
             'Riqueza Léxica Media (TTR %)': media_ttr
         })
         

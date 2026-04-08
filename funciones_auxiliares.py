@@ -1,7 +1,7 @@
 
 """
 =====================
-Este ejemplo procesa archivos de un volcado de Reddit en formato .zst para extraer
+Procesa archivos de un volcado de Reddit en formato .zst para extraer
 submissions y sus comentarios de un subreddit específico.
 """
 
@@ -48,7 +48,7 @@ def extract_submissions(filepath, subreddits_list, n_submissions=40, min_comment
     # Guardamos el último 'created_utc' guardado para cada subreddit
     last_time_saved = {sub.lower(): 0 for sub in subreddits_list}
     
-    # HE CONFIGURADO UN SALTO ALEATORIO, EN ESTE CASO ES UN DIA, PARA QUE NO HAYA VARIOS DEL MISMO DIA
+    # HEMOS CONFIGURADO UN SALTO ALEATORIO, EN ESTE CASO ES UN DIA, PARA QUE NO HAYA VARIOS DEL MISMO DIA
     SALTO = 86400 
 
     for obj in stream_zst_file(filepath):
