@@ -118,7 +118,8 @@ def boxplot(lista_dfs: list[pd.DataFrame], metrica: str = 'palabras') -> None:
         
     # Diccionario de títulos según la métrica elegida
     titulos_metricas = {
-        'palabras': 'Longitud del Comentario (Nº de Palabras)',
+        'palabras': 'Número de Palabras distintas por Comentario',
+        'tokens': 'Longitud del Comentario (Nº de Tokens)',
         'frases': 'Cantidad de Frases por Comentario',
         'palabras_por_frase': 'Complejidad (Palabras por Frase)',
         'ttr': 'Riqueza Léxica (Type-Token Ratio %)'
@@ -285,7 +286,7 @@ def plot_scatter_longitud_score(lista_dfs: list[pd.DataFrame], columna_longitud:
         facet_col_wrap=3,
         title='Impacto de la Longitud del Comentario en su Puntuación (Score)',
         labels={
-            columna_longitud: 'Longitud del Comentario (Nº de Palabras)',
+            columna_longitud: 'Longitud del Comentario (Nº de Tokens)',
             'score': 'Puntuación neta (Score)',
             'subreddit': 'Comunidad (r/)'
         },
@@ -421,7 +422,7 @@ def calcular_metricas_lexicas(texto: str) -> dict:
 
     return {
         'tokens': num_tokens,
-        'palabras': num_palabras,
+        'palabras': tipos_unicos,
         'frases': num_frases,
         'palabras_por_frase': round(palabras_por_frase, 2),
         'ttr': round(ttr, 2)
