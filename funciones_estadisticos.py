@@ -80,7 +80,7 @@ def histograma(datos: list[pd.DataFrame], columna: str = 'created_datetime', tit
         # Crea el histograma del tipo que sea en ese momento 
         for tipo, col_idx, color, y_label in config:
             if tipo in dfs:
-                # Usamos px.histogram para aprovechar su lógica de bins automáticos
+
                 temp_fig = px.histogram(dfs[tipo], x=columna, color_discrete_sequence=[color])
                 
                 # Extraemos los trazos y los pasamos al subplot
@@ -249,7 +249,7 @@ def plot_wordclouds(lista_dfs: list[pd.DataFrame], columna_texto: str = 'body') 
             contour_color='steelblue'
         ).generate(texto_completo)
         
-        # 5. Dibujamos la imagen generada usando matplotlib
+        # Dibujamos la imagen generada usando matplotlib
         plt.figure(figsize=(10, 5))
         plt.imshow(wc, interpolation='bilinear')
         plt.title(f"Nube de Palabras - r/{sub_nombre}", fontsize=18, pad=20)
@@ -294,7 +294,6 @@ def plot_scatter_longitud_score(lista_dfs: list[pd.DataFrame], columna_longitud:
         hover_data=['author'],
     )
     
-    # Retoques estéticos
     fig.update_layout(
         plot_bgcolor='white',
         showlegend=False,
@@ -339,6 +338,8 @@ def plot_pie(lista_dfs: list[pd.DataFrame],  titulo: str, columna: str = 'langua
     fig.show()
 
 def barplot(lista_dfs: list[pd.DataFrame], columna: str='author', titulo: str='Top Autores en', top_k: int=15, labels: dict={'x': 'Total', 'y': 'Author'}) -> None:
+    '''
+    Genera un gráfico de barras horizontales para visualizar los usuarios más activos (o cualquier otra categoría) en cada subreddit.'''
     
     subs_dict = {}
     for df in lista_dfs:
@@ -349,12 +350,12 @@ def barplot(lista_dfs: list[pd.DataFrame], columna: str='author', titulo: str='T
         tipo = 'subs' if 'title' in df.columns else 'comms'
         subs_dict[sub_name][tipo] = df
 
-    # Creamos la figura doble por cada subreddit
+    # Creamos la figura 1x2 por cada subreddit
     for sub, dfs in subs_dict.items():
         fig = make_subplots(
             rows=1, cols=2, 
             subplot_titles=(f'Submissions (Hilos)', f'Comentarios'),
-            horizontal_spacing=0.15 # Un poco más de espacio para los nombres de usuario
+            horizontal_spacing=0.15
         )
 
         # Configuración para cada lado (Tipo, Columna, Escala de color)
@@ -399,23 +400,23 @@ def calcular_metricas_lexicas(texto: str) -> dict:
     if not isinstance(texto, str) or not texto.strip():
         return {'tokens': 0, 'palabras': 0, 'frases': 0, 'palabras_por_frase': 0.0, 'ttr': 0.0}
 
-    # 1. Tokenización (separa palabras, signos de puntuación, símbolos)
+    # Tokenización (separa palabras, signos de puntuación, símbolos)
     tokens = word_tokenize(texto.lower())
     
-    # 2. Separación de frases (detecta puntos, exclamaciones, etc.)
+    # Separación de frases (detecta puntos, exclamaciones, etc.)
     frases = sent_tokenize(texto)
 
-    # 3. Extraer solo las palabras (filtramos puntos, comas, emojis...)
+    # Extraer solo las palabras (filtramos puntos, comas, emojis...)
     palabras = [t for t in tokens if t.isalnum()]
 
     num_tokens = len(tokens)
     num_palabras = len(palabras)
     num_frases = len(frases)
 
-    # 4. Palabras por frase (Longitud media de las oraciones)
+    # Palabras por frase (Longitud media de las oraciones)
     palabras_por_frase = num_palabras / num_frases if num_frases > 0 else 0
 
-    # 5. Riqueza Léxica (Type-Token Ratio)
+    # Riqueza Léxica (Type-Token Ratio)
     # Mide cuántas palabras ÚNICAS hay frente al total de palabras.
     tipos_unicos = len(set(palabras))
     ttr = (tipos_unicos / num_palabras * 100) if num_palabras > 0 else 0
@@ -443,11 +444,11 @@ def metricas_a_df(df_list: list[pd.DataFrame], columna_texto: str = 'body') -> l
         sub_nombre = df['subreddit'].iloc[0] if 'subreddit' in df.columns else 'Desconocido'
         print(f"Calculando métricas para {len(df)} filas de r/{sub_nombre}...")
         
-        # Aplicamos la lógica matemática
+        # Aplicamos la lógica de las métricas
         metricas_serie = df[columna_texto].apply(calcular_metricas_lexicas)
         df_metricas = pd.DataFrame(metricas_serie.tolist(), index=df.index)
         
-        # Juntamos, guardamos en la lista recolectora y el bucle sigue girando
+        # Juntamos el Dataframe original con el de métricas
         df_final = pd.concat([df, df_metricas], axis=1)
         dfs_procesados.append(df_final)
         
@@ -471,18 +472,18 @@ def calcular_estadisticos_corpus(lista_dfs: list[pd.DataFrame]) -> pd.DataFrame:
         # Extraemos el nombre del subreddit
         sub_nombre = df['subreddit'].iloc[0] if 'subreddit' in df.columns else 'Desconocido'
         
-        # Comprobación de seguridad: vemos si las columnas existen
+        # Comprobación de seguridad
         if 'palabras' not in df.columns:
             print(f"⚠️ El DataFrame de r/{sub_nombre} no tiene las métricas calculadas aún.")
             continue
             
-        # Totales (Volumen bruto del subreddit)
+        # Totales
         total_comentarios = len(df)
         total_palabras = df['palabras'].sum()
         total_tokens = df['tokens'].sum()
         total_frases = df['frases'].sum()
         
-        # Medias (Para entender el comportamiento del usuario promedio)
+        # Medias
         media_palabras = round(df['palabras'].mean(), 2)
         media_frases = round(df['frases'].mean(), 2)
         media_ttr = round(df['ttr'].mean(), 2) # TTR medio por comentario

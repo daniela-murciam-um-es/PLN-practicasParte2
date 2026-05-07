@@ -88,7 +88,7 @@ def extract_submissions(filepath, subreddits_list, n_submissions=40, min_comment
 def extract_comments_for_submissions(filepath, submissions, num_comments=35):
     """
     Busca comentarios para las submissions seleccionadas.
-    Pedimos 35 por hilo para tener margen de sobra si hay bots o spam.
+    Pedimos 30 por hilo para tener margen de sobra si hay bots o spam.
     """
     submission_map = {s['name']: s for s in submissions}
     comment_count = {s['name']: 0 for s in submissions}
